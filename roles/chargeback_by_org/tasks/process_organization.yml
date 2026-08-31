@@ -1,16 +1,20 @@
 ---
-# One filtered query per organization. Traversing hosts -> job_host_summaries
-# -> job -> organization attributes each host to the organization whose job
-# automated it, rather than to the organization that owns its inventory.
-- name: Reset per-organization host tracking
-  ansible.builtin.set_fact:
-    chargeback_hostnames_raw: []
-    chargeback_next_url: >-
-      {{ chargeback_api_base_path }}/hosts/?job_host_summaries__job__organization={{ chargeback_org.id }}&job_host_summaries__job__created__gte={{ chargeback_from_iso }}&job_host_summaries__job__created__lte={{ chargeback_to_iso }}&page_size={{ chargeback_page_size }}&order_by=id
-
-- name: Walk the hosts this organization automated
-  ansible.builtin.include_tasks: fetch_hosts_page.yml
-  when: chargeback_next_url | length > 0
+# Walks this organization's jobs and reads the hosts from their job host
+# summaries, which is the only source that survives a host being deleted from
+# inventory. The module issues those per-job requests concurrently.
+- name: Collect every host this organization automated in the window
+  aap_org_hosts:
+    base_url: "{{ chargeback_controller_base_url }}"
+    api_base_path: "{{ chargeback_api_base_path }}"
+    username: "{{ chargeback_controller_username }}"
+    password: "{{ chargeback_controller_password }}"
+    validate_certs: "{{ chargeback_controller_validate_certs }}"
+    organization_id: "{{ chargeback_org.id }}"
+    created_after: "{{ chargeback_from_iso }}"
+    created_before: "{{ chargeback_to_iso }}"
+    page_size: "{{ chargeback_page_size }}"
+    threads: "{{ chargeback_threads }}"
+  register: chargeback_org_hosts
 
 - name: Record this organization's results
   ansible.builtin.set_fact:
@@ -18,6 +22,8 @@
       {{ chargeback_report + [{
         'organization': chargeback_org.name,
         'organization_id': chargeback_org.id,
-        'unique_host_count': chargeback_hostnames_raw | unique | length,
-        'hostnames': chargeback_hostnames_raw | unique | sort
+        'job_count': chargeback_org_hosts.job_count,
+        'unique_host_count': chargeback_org_hosts.hostnames | length,
+        'deleted_host_count': chargeback_org_hosts.deleted_hostnames | length,
+        'hostnames': chargeback_org_hosts.hostnames
       }] }}

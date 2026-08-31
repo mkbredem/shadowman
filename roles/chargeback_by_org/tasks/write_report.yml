@@ -24,8 +24,9 @@
   ansible.builtin.debug:
     msg: >-
       {{ item.organization }}: {{ item.unique_host_count }} unique host(s)
-      automated between {{ chargeback_from_date }} and {{ chargeback_to_date }},
-      {{ item.shared_host_count }} shared with another organization,
+      across {{ item.job_count }} job(s) between {{ chargeback_from_date }} and
+      {{ chargeback_to_date }}, {{ item.shared_host_count }} shared with another
+      organization, {{ item.deleted_host_count }} since deleted from inventory,
       billable as {{ item.billable_hosts }} host(s)
   loop: "{{ chargeback_report | sort(attribute='organization') }}"
   loop_control:

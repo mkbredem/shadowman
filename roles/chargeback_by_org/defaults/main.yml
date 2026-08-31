@@ -37,14 +37,8 @@ chargeback_write_csv: true
 chargeback_write_json: true
 chargeback_print_summary: true
 
-# --- Verification -------------------------------------------------------------
-# Recompute one organization the slow, exact way -- walk every job it ran in
-# the window and collect each job's host summaries -- then compare against the
-# fast query. This catches the fast filter over-counting, and measures how many
-# hosts were automated in the window but have since been deleted from inventory
-# (those survive only in job host summaries, so the fast query cannot see them).
-chargeback_verify: true
-
-# Organization name to verify. Empty selects the one with the most hosts, which
-# is the strongest available test.
-chargeback_verify_organization: ""
+# --- Concurrency --------------------------------------------------------------
+# Job host summaries are only reachable one job at a time, so the walk issues
+# that request per job. They are independent and I/O bound, so they run
+# concurrently; raise this to go faster against a Controller that can take it.
+chargeback_threads: 16

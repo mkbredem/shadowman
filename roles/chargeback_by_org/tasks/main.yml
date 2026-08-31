@@ -39,9 +39,6 @@
 - name: Determine which organizations to report on
   ansible.builtin.include_tasks: get_organizations.yml
 
-- name: Confirm this Controller supports the filters the report depends on
-  ansible.builtin.include_tasks: preflight.yml
-
 - name: Count unique automated hosts per organization
   ansible.builtin.include_tasks: process_organization.yml
   loop: "{{ chargeback_org_list }}"
@@ -51,10 +48,6 @@
 
 - name: Apportion hosts automated by more than one organization
   ansible.builtin.include_tasks: compute_shares.yml
-
-- name: Verify the fast query against an exact walk of one organization
-  ansible.builtin.include_tasks: verify.yml
-  when: chargeback_verify | bool
 
 - name: Write the chargeback report
   ansible.builtin.include_tasks: write_report.yml
