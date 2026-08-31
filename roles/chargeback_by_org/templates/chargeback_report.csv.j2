@@ -1,4 +1,4 @@
-organization,organization_id,unique_host_count,hostnames
+organization,organization_id,unique_host_count,shared_host_count,billable_hosts,hostnames
 {% for org in chargeback_report | sort(attribute='organization') %}
-"{{ org.organization }}",{{ org.organization_id }},{{ org.unique_host_count }},"{{ org.hostnames | join(';') }}"
+"{{ org.organization }}",{{ org.organization_id }},{{ org.unique_host_count }},{{ org.shared_host_count }},{{ org.billable_hosts }},"{{ org.hostnames | join(';') }}"
 {% endfor %}

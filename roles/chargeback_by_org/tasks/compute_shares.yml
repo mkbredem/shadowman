@@ -1,0 +1,52 @@
+---
+- name: Collect every hostname automated during the window
+  ansible.builtin.set_fact:
+    chargeback_all_hostnames: "{{ chargeback_report | map(attribute='hostnames') | flatten | unique | sort }}"
+
+- name: Count how many organizations automated each host
+  # Each organization's hostname list is already deduplicated, so an entry
+  # appearing N times across the report means N distinct organizations.
+  ansible.builtin.set_fact:
+    chargeback_host_orgs: >-
+      {%- set ns = namespace(counts={}) -%}
+      {%- for entry in chargeback_report -%}
+      {%- for host in entry.hostnames -%}
+      {%- set _ = ns.counts.update({host: ns.counts.get(host, 0) + 1}) -%}
+      {%- endfor -%}
+      {%- endfor -%}
+      {{ ns.counts }}
+
+- name: Reset the apportioned report
+  ansible.builtin.set_fact:
+    chargeback_billing: []
+
+- name: Split each host evenly across the organizations that automated it
+  # A host automated by three organizations bills 1/3 to each, so the
+  # per-organization totals reconcile exactly to the platform-wide count.
+  ansible.builtin.set_fact:
+    chargeback_billing: >-
+      {{ chargeback_billing + [item | combine({
+        'shared_host_count': item.hostnames | map('extract', chargeback_host_orgs) | select('gt', 1) | list | length,
+        'billable_hosts': item.hostnames | map('extract', chargeback_host_orgs) | map('pow', -1) | sum | round(4)
+      })] }}
+  loop: "{{ chargeback_report }}"
+  loop_control:
+    label: "{{ item.organization }}"
+
+- name: Adopt the apportioned figures as the report
+  ansible.builtin.set_fact:
+    chargeback_report: "{{ chargeback_billing }}"
+
+- name: Verify the apportioned totals reconcile to the distinct host count
+  # Guards against double counting: the tolerance absorbs only the rounding
+  # applied to each organization's share, not a genuine attribution error.
+  ansible.builtin.assert:
+    that:
+      - ((chargeback_report | map(attribute='billable_hosts') | sum) - (chargeback_all_hostnames | length)) | abs < 0.01
+    fail_msg: >-
+      Apportioned totals ({{ chargeback_report | map(attribute='billable_hosts') | sum | round(4) }})
+      do not reconcile with the {{ chargeback_all_hostnames | length }} distinct host(s)
+      automated between {{ chargeback_from_date }} and {{ chargeback_to_date }}.
+    success_msg: >-
+      {{ chargeback_all_hostnames | length }} distinct host(s) apportioned across
+      {{ chargeback_report | length }} organization(s).

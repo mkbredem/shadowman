@@ -1,8 +1,0 @@
----
-- name: Point pagination at this job's host summaries
-  ansible.builtin.set_fact:
-    chargeback_next_url: "{{ chargeback_api_base_path }}/jobs/{{ chargeback_job.id }}/job_host_summaries/?page_size={{ chargeback_page_size }}&order_by=id"
-
-- name: Walk this job's host summaries
-  ansible.builtin.include_tasks: fetch_job_host_summaries_page.yml
-  when: chargeback_next_url | default('') | length > 0

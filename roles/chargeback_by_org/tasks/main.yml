@@ -18,7 +18,7 @@
 - name: Compute the ISO8601 bounds of the reporting window
   ansible.builtin.set_fact:
     chargeback_from_iso: "{{ chargeback_from_date }}T00:00:00Z"
-    chargeback_to_iso: "{{ chargeback_to_date }}T23:59:59Z"
+    chargeback_to_iso: "{{ chargeback_to_date }}T23:59:59.999999Z"
 
 - name: Normalize the controller hostname into a base URL
   # The AAP "Red Hat Ansible Automation Platform" credential injects
@@ -45,6 +45,9 @@
   loop_control:
     loop_var: chargeback_org
     label: "{{ chargeback_org.name }}"
+
+- name: Apportion hosts automated by more than one organization
+  ansible.builtin.include_tasks: compute_shares.yml
 
 - name: Write the chargeback report
   ansible.builtin.include_tasks: write_report.yml

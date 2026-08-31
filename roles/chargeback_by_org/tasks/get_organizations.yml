@@ -40,8 +40,8 @@
     - name: Reset organization discovery state
       ansible.builtin.set_fact:
         chargeback_org_list: []
-        chargeback_next_url: "{{ chargeback_api_base_path }}/organizations/?page_size={{ chargeback_page_size }}"
+        chargeback_next_orgs_url: "{{ chargeback_api_base_path }}/organizations/?page_size={{ chargeback_page_size }}"
 
     - name: Walk the paginated organizations list
       ansible.builtin.include_tasks: fetch_organizations_page.yml
-      when: chargeback_next_url | default('') | length > 0
+      when: chargeback_next_orgs_url | length > 0
