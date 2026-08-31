@@ -1,12 +1,15 @@
 ---
 # --- Controller/Gateway connection ---------------------------------------
 # Hostname/URL of the AAP gateway (2.5+) or Controller node, e.g.
-# https://aap.example.com. Provided by an AAP credential/survey field in
-# real executions - the values below are placeholders only.
-chargeback_controller_hostname: ""
-chargeback_controller_username: ""
-chargeback_controller_password: ""
-chargeback_controller_validate_certs: true
+# https://aap.example.com. When a "Red Hat Ansible Automation Platform"
+# credential is attached to the Job Template, AAP injects these as the
+# CONTROLLER_* environment variables (with TOWER_* kept as legacy
+# aliases) and no survey/extra-vars are needed. Set the vars explicitly
+# (survey, -e, or group_vars) to override or to run outside of AAP.
+chargeback_controller_hostname: "{{ lookup('env', 'CONTROLLER_HOST') or lookup('env', 'TOWER_HOST') or '' }}"
+chargeback_controller_username: "{{ lookup('env', 'CONTROLLER_USERNAME') or lookup('env', 'TOWER_USERNAME') or '' }}"
+chargeback_controller_password: "{{ lookup('env', 'CONTROLLER_PASSWORD') or lookup('env', 'TOWER_PASSWORD') or '' }}"
+chargeback_controller_validate_certs: "{{ (lookup('env', 'CONTROLLER_VERIFY_SSL') or lookup('env', 'TOWER_VERIFY_SSL') or 'true') | bool }}"
 
 # AAP 2.5+ fronts the Controller API behind the platform gateway at
 # /api/controller/v2. Set this to /api/v2 instead if querying a
