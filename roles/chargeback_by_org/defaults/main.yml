@@ -1,0 +1,35 @@
+---
+# --- Controller/Gateway connection ---------------------------------------
+# Hostname/URL of the AAP gateway (2.5+) or Controller node, e.g.
+# https://aap.example.com. Provided by an AAP credential/survey field in
+# real executions - the values below are placeholders only.
+chargeback_controller_hostname: ""
+chargeback_controller_username: ""
+chargeback_controller_password: ""
+chargeback_controller_validate_certs: true
+
+# AAP 2.5+ fronts the Controller API behind the platform gateway at
+# /api/controller/v2. Set this to /api/v2 instead if querying a
+# pre-gateway Controller node directly.
+chargeback_api_base_path: "/api/controller/v2"
+
+# --- Reporting window (YYYY-MM-DD, inclusive on both ends) ----------------
+chargeback_from_date: ""
+chargeback_to_date: ""
+
+# --- Scope -----------------------------------------------------------------
+# Organization names to report on. Leave empty to report on every
+# organization visible to chargeback_controller_username.
+chargeback_organizations: []
+
+# --- API paging --------------------------------------------------------------
+# The Controller API caps page_size at 200 by default; raising this above
+# the server's own limit has no effect.
+chargeback_page_size: 200
+
+# --- Output ------------------------------------------------------------------
+chargeback_output_dir: "./chargeback_reports"
+chargeback_output_basename: "chargeback_by_org_{{ chargeback_from_date }}_to_{{ chargeback_to_date }}"
+chargeback_write_csv: true
+chargeback_write_json: true
+chargeback_print_summary: true

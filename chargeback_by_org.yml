@@ -1,0 +1,8 @@
+---
+- name: Report unique automated hosts per organization
+  hosts: localhost
+  gather_facts: false
+  connection: local
+
+  roles:
+    - chargeback_by_org

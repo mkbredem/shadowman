@@ -1,0 +1,47 @@
+---
+- name: Look up specific organizations by name
+  when: chargeback_organizations | length > 0
+  block:
+    - name: Reset the organization list
+      ansible.builtin.set_fact:
+        chargeback_org_list: []
+
+    - name: Query each requested organization by name
+      ansible.builtin.uri:
+        url: "{{ chargeback_controller_hostname }}{{ chargeback_api_base_path }}/organizations/?name={{ item | urlencode }}"
+        method: GET
+        user: "{{ chargeback_controller_username }}"
+        password: "{{ chargeback_controller_password }}"
+        force_basic_auth: true
+        validate_certs: "{{ chargeback_controller_validate_certs }}"
+        return_content: true
+      register: chargeback_org_lookup
+      loop: "{{ chargeback_organizations }}"
+
+    - name: Fail if an organization name did not resolve to exactly one organization
+      ansible.builtin.assert:
+        that:
+          - item.json.count == 1
+        fail_msg: "Organization '{{ item.item }}' matched {{ item.json.count }} organizations, expected exactly 1."
+      loop: "{{ chargeback_org_lookup.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: Record the resolved organizations
+      ansible.builtin.set_fact:
+        chargeback_org_list: "{{ chargeback_org_list + [item.json.results[0]] }}"
+      loop: "{{ chargeback_org_lookup.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+- name: Discover every visible organization
+  when: chargeback_organizations | length == 0
+  block:
+    - name: Reset organization discovery state
+      ansible.builtin.set_fact:
+        chargeback_org_list: []
+        chargeback_next_url: "{{ chargeback_api_base_path }}/organizations/?page_size={{ chargeback_page_size }}"
+
+    - name: Walk the paginated organizations list
+      ansible.builtin.include_tasks: fetch_organizations_page.yml
+      when: chargeback_next_url | default('') | length > 0

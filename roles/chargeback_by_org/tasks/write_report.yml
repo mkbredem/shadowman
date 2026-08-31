@@ -1,0 +1,31 @@
+---
+- name: Ensure the output directory exists
+  ansible.builtin.file:
+    path: "{{ chargeback_output_dir }}"
+    state: directory
+    mode: "0750"
+  when: chargeback_write_csv or chargeback_write_json
+
+- name: Write the CSV chargeback report
+  ansible.builtin.template:
+    src: chargeback_report.csv.j2
+    dest: "{{ chargeback_output_dir }}/{{ chargeback_output_basename }}.csv"
+    mode: "0640"
+  when: chargeback_write_csv
+
+- name: Write the JSON chargeback report
+  ansible.builtin.template:
+    src: chargeback_report.json.j2
+    dest: "{{ chargeback_output_dir }}/{{ chargeback_output_basename }}.json"
+    mode: "0640"
+  when: chargeback_write_json
+
+- name: Print the chargeback summary
+  ansible.builtin.debug:
+    msg: >-
+      {{ item.organization }}: {{ item.unique_host_count }} unique host(s)
+      automated between {{ chargeback_from_date }} and {{ chargeback_to_date }}
+  loop: "{{ chargeback_report | sort(attribute='organization') }}"
+  loop_control:
+    label: "{{ item.organization }}"
+  when: chargeback_print_summary

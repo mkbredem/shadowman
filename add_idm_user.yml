@@ -1,0 +1,8 @@
+---
+- name: Add a user to Red Hat IdM
+  hosts: localhost
+  gather_facts: false
+  connection: local
+
+  roles:
+    - idm_user

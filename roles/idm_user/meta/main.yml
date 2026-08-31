@@ -1,0 +1,14 @@
+---
+galaxy_info:
+  role_name: idm_user
+  description: Add/update a user and its group memberships in Red Hat IdM
+  company: shadowman
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: EL
+      versions:
+        - "8"
+        - "9"
+
+dependencies: []

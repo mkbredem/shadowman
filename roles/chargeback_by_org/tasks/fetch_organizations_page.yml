@@ -1,0 +1,23 @@
+---
+- name: Fetch a page of organizations
+  ansible.builtin.uri:
+    url: "{{ chargeback_controller_hostname }}{{ chargeback_next_url }}"
+    method: GET
+    user: "{{ chargeback_controller_username }}"
+    password: "{{ chargeback_controller_password }}"
+    force_basic_auth: true
+    validate_certs: "{{ chargeback_controller_validate_certs }}"
+    return_content: true
+  register: chargeback_org_page
+
+- name: Accumulate organizations from this page
+  ansible.builtin.set_fact:
+    chargeback_org_list: "{{ chargeback_org_list + chargeback_org_page.json.results }}"
+
+- name: Determine the next organizations page
+  ansible.builtin.set_fact:
+    chargeback_next_url: "{{ chargeback_org_page.json.next }}"
+
+- name: Recurse into the next organizations page
+  ansible.builtin.include_tasks: fetch_organizations_page.yml
+  when: chargeback_next_url | default('') | length > 0

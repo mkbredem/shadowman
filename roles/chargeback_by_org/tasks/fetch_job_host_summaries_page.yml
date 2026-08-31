@@ -1,0 +1,24 @@
+---
+- name: Fetch a page of job host summaries
+  ansible.builtin.uri:
+    url: "{{ chargeback_controller_hostname }}{{ chargeback_next_url }}"
+    method: GET
+    user: "{{ chargeback_controller_username }}"
+    password: "{{ chargeback_controller_password }}"
+    force_basic_auth: true
+    validate_certs: "{{ chargeback_controller_validate_certs }}"
+    return_content: true
+  register: chargeback_jhs_page
+
+- name: Accumulate unique hostnames from this page
+  ansible.builtin.set_fact:
+    chargeback_hostnames_set: >-
+      {{ (chargeback_hostnames_set + (chargeback_jhs_page.json.results | map(attribute='host_name') | list)) | unique }}
+
+- name: Determine the next job host summaries page
+  ansible.builtin.set_fact:
+    chargeback_next_url: "{{ chargeback_jhs_page.json.next }}"
+
+- name: Recurse into the next job host summaries page
+  ansible.builtin.include_tasks: fetch_job_host_summaries_page.yml
+  when: chargeback_next_url | default('') | length > 0

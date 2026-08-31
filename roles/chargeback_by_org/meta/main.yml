@@ -1,0 +1,16 @@
+---
+galaxy_info:
+  role_name: chargeback_by_org
+  description: >-
+    Report unique hosts automated against per organization over a date
+    range, via the AAP Controller API
+  company: shadowman
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: EL
+      versions:
+        - "8"
+        - "9"
+
+dependencies: []

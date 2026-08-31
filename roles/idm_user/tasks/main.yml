@@ -1,0 +1,55 @@
+---
+- name: Ensure {{ idm_user_login }} exists in Red Hat IdM
+  redhat.rhel_idm.ipauser:
+    ipaadmin_principal: "{{ ipaadmin_principal }}"
+    ipaadmin_password: "{{ ipaadmin_password }}"
+    name: "{{ idm_user_login }}"
+    first: "{{ idm_user_first_name }}"
+    last: "{{ idm_user_last_name }}"
+    fullname: "{{ idm_user_full_name }}"
+    displayname: "{{ idm_user_display_name }}"
+    gecos: "{{ idm_user_gecos }}"
+    homedir: "{{ idm_user_home_directory }}"
+    shell: "{{ idm_user_login_shell }}"
+    update_password: on_create
+    userclass: "{{ idm_user_class | default(omit, true) }}"
+    title: "{{ idm_user_job_title | default(omit, true) }}"
+    password: "{{ (idm_user_password if not idm_user_random_password else None) | default(omit, true) }}"
+    random: "{{ idm_user_random_password }}"
+    principalexpiration: "{{ idm_user_krb_principal_expiration | default(omit, true) }}"
+    email: "{{ idm_user_email_addresses | default(omit, true) }}"
+    phone: "{{ idm_user_telephone_numbers | default(omit, true) }}"
+    mobile: "{{ idm_user_mobile_telephone_numbers | default(omit, true) }}"
+    pager: "{{ idm_user_pager_numbers | default(omit, true) }}"
+    fax: "{{ idm_user_fax_numbers | default(omit, true) }}"
+    street: "{{ idm_user_street_address | default(omit, true) }}"
+    city: "{{ idm_user_city | default(omit, true) }}"
+    userstate: "{{ idm_user_state_province | default(omit, true) }}"
+    postalcode: "{{ idm_user_zip | default(omit, true) }}"
+    orgunit: "{{ idm_user_org_unit | default(omit, true) }}"
+    manager: "{{ idm_user_manager | default(omit, true) }}"
+    departmentnumber: "{{ idm_user_department_numbers | default(omit, true) }}"
+    employeenumber: "{{ idm_user_employee_number | default(omit, true) }}"
+    employeetype: "{{ idm_user_employee_type | default(omit, true) }}"
+    preferredlanguage: "{{ idm_user_preferred_language | default(omit, true) }}"
+    carlicense: "{{ idm_user_car_licenses | default(omit, true) }}"
+    sshpubkey: "{{ idm_user_ssh_public_keys | default(omit, true) }}"
+    certificate: "{{ idm_user_certificates | default(omit, true) }}"
+    certmapdata: "{{ idm_user_certificate_mapping_data | default(omit, true) }}"
+    userauthtype: "{{ idm_user_auth_types | default(omit, true) }}"
+    radius: "{{ idm_user_radius_proxy_configuration | default(omit, true) }}"
+    radiususer: "{{ idm_user_radius_proxy_username | default(omit, true) }}"
+    idp: "{{ idm_user_external_idp_configuration | default(omit, true) }}"
+    idp_user_id: "{{ idm_user_external_idp_user_identifier | default(omit, true) }}"
+    state: present
+
+- name: Ensure {{ idm_user_login }} is a member of the required IdM groups
+  redhat.rhel_idm.ipagroup:
+    ipaadmin_principal: "{{ ipaadmin_principal }}"
+    ipaadmin_password: "{{ ipaadmin_password }}"
+    name: "{{ item }}"
+    user:
+      - "{{ idm_user_login }}"
+    action: member
+    state: present
+  loop: "{{ idm_user_groups }}"
