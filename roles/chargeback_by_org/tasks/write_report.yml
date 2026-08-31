@@ -31,3 +31,17 @@
   loop_control:
     label: "{{ item.organization }}"
   when: chargeback_print_summary
+
+- name: Publish the report as job artifacts
+  # The files written above live inside the execution environment and are
+  # discarded when it exits. set_stats surfaces the figures on the job itself,
+  # which is the only durable output when this runs under AAP. Very large host
+  # lists can exceed the Controller's event size limit (MAX_EVENT_RES).
+  ansible.builtin.set_stats:
+    data:
+      chargeback_from_date: "{{ chargeback_from_date }}"
+      chargeback_to_date: "{{ chargeback_to_date }}"
+      chargeback_distinct_hosts: "{{ chargeback_all_hostnames | length }}"
+      chargeback_billable_total: "{{ chargeback_report | map(attribute='billable_hosts') | sum | round(4) }}"
+      chargeback_by_organization: "{{ chargeback_report | sort(attribute='organization') }}"
+      chargeback_report_csv: "{{ lookup('template', 'chargeback_report.csv.j2') }}"

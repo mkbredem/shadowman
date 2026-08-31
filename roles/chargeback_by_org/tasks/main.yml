@@ -52,5 +52,9 @@
 - name: Apportion hosts automated by more than one organization
   ansible.builtin.include_tasks: compute_shares.yml
 
+- name: Verify the fast query against an exact walk of one organization
+  ansible.builtin.include_tasks: verify.yml
+  when: chargeback_verify | bool
+
 - name: Write the chargeback report
   ansible.builtin.include_tasks: write_report.yml

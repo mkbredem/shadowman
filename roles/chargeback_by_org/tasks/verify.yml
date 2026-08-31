@@ -1,0 +1,94 @@
+---
+- name: Choose the organization to verify
+  ansible.builtin.set_fact:
+    chargeback_verify_entry: >-
+      {{
+        (chargeback_verify_organization | length > 0)
+        | ternary(
+            chargeback_report | selectattr('organization', 'eq', chargeback_verify_organization) | first | default({}),
+            chargeback_report | sort(attribute='unique_host_count') | last
+          )
+      }}
+
+- name: Fail if the requested verification organization is not in the report
+  ansible.builtin.assert:
+    that:
+      - chargeback_verify_entry | length > 0
+    fail_msg: >-
+      chargeback_verify_organization '{{ chargeback_verify_organization }}' is not
+      one of {{ chargeback_report | map(attribute='organization') | list }}.
+
+- name: Reset verification state
+  ansible.builtin.set_fact:
+    chargeback_verify_job_ids: []
+    chargeback_next_verify_url: >-
+      {{ chargeback_api_base_path }}/jobs/?organization={{ chargeback_verify_entry.organization_id }}&created__gte={{ chargeback_from_iso }}&created__lte={{ chargeback_to_iso }}&page_size={{ chargeback_page_size }}&order_by=id
+
+- name: Collect every job this organization ran in the window
+  ansible.builtin.include_tasks: fetch_verify_jobs_page.yml
+  when: chargeback_next_verify_url | length > 0
+
+- name: Fetch the host summaries for each of those jobs
+  # One task with a loop rather than an include per job: the HTTP requests are
+  # unavoidable, but this avoids the per-job task overhead that made the
+  # original implementation take fifteen minutes.
+  ansible.builtin.uri:
+    url: "{{ chargeback_controller_base_url }}{{ chargeback_api_base_path }}/jobs/{{ item }}/job_host_summaries/?page_size={{ chargeback_page_size }}&order_by=id"
+    method: GET
+    user: "{{ chargeback_controller_username }}"
+    password: "{{ chargeback_controller_password }}"
+    force_basic_auth: true
+    validate_certs: "{{ chargeback_controller_validate_certs }}"
+    return_content: true
+  register: chargeback_verify_pages
+  loop: "{{ chargeback_verify_job_ids }}"
+  loop_control:
+    label: "job {{ item }}"
+
+- name: Fail if any job's host summaries spilled onto a second page
+  # The loop above reads only the first page of each job, which is exact only
+  # while no single job touched more than chargeback_page_size hosts.
+  ansible.builtin.assert:
+    that:
+      - chargeback_verify_pages.results | rejectattr('json.next', 'none') | list | length == 0
+    fail_msg: >-
+      One or more jobs returned more than {{ chargeback_page_size }} host
+      summaries, so the verification walk is incomplete and its comparison
+      would be misleading.
+
+- name: Reduce the walk to the set of hostnames it saw
+  ansible.builtin.set_fact:
+    chargeback_verify_hostnames: >-
+      {{ chargeback_verify_pages.results | map(attribute='json.results') | flatten | map(attribute='host_name') | unique | sort }}
+
+- name: Compare the fast query against the exact walk
+  ansible.builtin.set_fact:
+    chargeback_verify_overcount: "{{ chargeback_verify_entry.hostnames | difference(chargeback_verify_hostnames) }}"
+    chargeback_verify_deleted: "{{ chargeback_verify_hostnames | difference(chargeback_verify_entry.hostnames) }}"
+
+- name: Require the fast query to attribute nothing the exact walk did not
+  # An over-count would mean the Controller applied the organization and date
+  # filters to different job host summary rows, billing an organization for
+  # hosts it did not automate during the window.
+  ansible.builtin.assert:
+    that:
+      - chargeback_verify_overcount | length == 0
+    fail_msg: >-
+      OVER-COUNT: the fast query attributed {{ chargeback_verify_overcount | length }}
+      host(s) to '{{ chargeback_verify_entry.organization }}' that its jobs did not
+      touch between {{ chargeback_from_date }} and {{ chargeback_to_date }}:
+      {{ chargeback_verify_overcount }}. These figures are not safe to bill.
+    success_msg: >-
+      Verified '{{ chargeback_verify_entry.organization }}' against
+      {{ chargeback_verify_job_ids | length }} job(s): the fast query attributed
+      {{ chargeback_verify_entry.hostnames | length }} host(s) and the exact walk
+      found {{ chargeback_verify_hostnames | length }}, with no over-count.
+
+- name: Report hosts the fast query cannot see
+  ansible.builtin.debug:
+    msg: >-
+      {{ chargeback_verify_deleted | length }} host(s) automated by
+      '{{ chargeback_verify_entry.organization }}' in this window are no longer in
+      inventory and are therefore not billed:
+      {{ chargeback_verify_deleted | default([], true) }}
+  when: chargeback_verify_deleted | length > 0
