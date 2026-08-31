@@ -1,5 +1,5 @@
 ---
-- name: Fetch a page of job host summaries
+- name: Fetch a page of hosts automated by this organization
   ansible.builtin.uri:
     url: "{{ chargeback_controller_base_url }}{{ chargeback_next_url }}"
     method: GET
@@ -8,21 +8,21 @@
     force_basic_auth: true
     validate_certs: "{{ chargeback_controller_validate_certs }}"
     return_content: true
-  register: chargeback_jhs_page
+  register: chargeback_hosts_page
 
 - name: Accumulate hostnames from this page
-  # Deduplicated once per organization in process_organization.yml rather than
-  # on each page; running unique() over the growing list made this quadratic.
+  # The join against job_host_summaries can repeat a host once per job that
+  # touched it; deduplicated once per organization in process_organization.yml.
   ansible.builtin.set_fact:
     chargeback_hostnames_raw: >-
-      {{ chargeback_hostnames_raw + (chargeback_jhs_page.json.results | map(attribute='host_name') | list) }}
+      {{ chargeback_hostnames_raw + (chargeback_hosts_page.json.results | map(attribute='name') | list) }}
 
-- name: Determine the next job host summaries page
+- name: Determine the next hosts page
   # The API returns a JSON null on the final page, which would otherwise fail
   # the length test below; default(..., true) also treats null as empty.
   ansible.builtin.set_fact:
-    chargeback_next_url: "{{ chargeback_jhs_page.json.next | default('', true) }}"
+    chargeback_next_url: "{{ chargeback_hosts_page.json.next | default('', true) }}"
 
-- name: Recurse into the next job host summaries page
-  ansible.builtin.include_tasks: fetch_job_host_summaries_page.yml
+- name: Recurse into the next hosts page
+  ansible.builtin.include_tasks: fetch_hosts_page.yml
   when: chargeback_next_url | length > 0

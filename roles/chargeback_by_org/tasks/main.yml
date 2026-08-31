@@ -39,6 +39,9 @@
 - name: Determine which organizations to report on
   ansible.builtin.include_tasks: get_organizations.yml
 
+- name: Confirm this Controller supports the filters the report depends on
+  ansible.builtin.include_tasks: preflight.yml
+
 - name: Count unique automated hosts per organization
   ansible.builtin.include_tasks: process_organization.yml
   loop: "{{ chargeback_org_list }}"

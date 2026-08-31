@@ -1,16 +1,15 @@
 ---
-# A single filtered query per organization replaces the old per-job fan-out.
-# job_host_summaries can be filtered by the organization of the job that
-# produced each row, so the Controller performs the join and this role issues
-# one request per page of hosts instead of one request per job.
+# One filtered query per organization. Traversing hosts -> job_host_summaries
+# -> job -> organization attributes each host to the organization whose job
+# automated it, rather than to the organization that owns its inventory.
 - name: Reset per-organization host tracking
   ansible.builtin.set_fact:
     chargeback_hostnames_raw: []
     chargeback_next_url: >-
-      {{ chargeback_api_base_path }}/job_host_summaries/?job__organization={{ chargeback_org.id }}&job__created__gte={{ chargeback_from_iso }}&job__created__lte={{ chargeback_to_iso }}&page_size={{ chargeback_page_size }}&order_by=id
+      {{ chargeback_api_base_path }}/hosts/?job_host_summaries__job__organization={{ chargeback_org.id }}&job_host_summaries__job__created__gte={{ chargeback_from_iso }}&job_host_summaries__job__created__lte={{ chargeback_to_iso }}&page_size={{ chargeback_page_size }}&order_by=id
 
-- name: Walk this organization's job host summaries
-  ansible.builtin.include_tasks: fetch_job_host_summaries_page.yml
+- name: Walk the hosts this organization automated
+  ansible.builtin.include_tasks: fetch_hosts_page.yml
   when: chargeback_next_url | length > 0
 
 - name: Record this organization's results
