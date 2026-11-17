@@ -7,6 +7,9 @@
 #   repo_unreachable  - repository metadata cannot be downloaded (expired
 #                       entitlement or Satellite/CDN not reachable)
 # Set simulate_failures=false to make every host succeed.
+# Set fail_job_on_host_failure=false to finish the job as successful while still
+# reporting the failed hosts in failed_hosts (automation orchestrator skips the
+# AAP steps after a failed step, so the orchestrator workflow passes false).
 #
 # The job publishes these values with set_stats for automation orchestrator:
 #   ok_hosts, failed_hosts   comma-separated host names (usable as a job limit)
@@ -18,6 +21,7 @@
   gather_facts: false
   vars:
     simulate_failures: true
+    fail_job_on_host_failure: true
     errata_severity: Important
   tasks:
     - name: Patch this host
@@ -78,4 +82,6 @@
     - name: Fail the hosts that could not be patched
       ansible.builtin.fail:
         msg: "{{ patch_failed_task }}: {{ patch_error }}"
-      when: patch_error is defined
+      when:
+        - patch_error is defined
+        - fail_job_on_host_failure | bool
