@@ -1,0 +1,26 @@
+---
+# wfjt_dummy_validate_ok_hosts
+# Simulated post-patch checks for the hosts that patched in patch_rhel.yml.
+# Targets the hosts named in the ok_hosts variable (published by patch_rhel.yml
+# with set_stats and passed down the workflow as an extra variable), because an
+# AAP workflow job template node can't set its job limit from the previous job's
+# results. If ok_hosts is empty, no hosts match and the play does nothing.
+- name: Validate hosts after patching (simulated)
+  hosts: "{{ ok_hosts | default('no_patched_hosts', true) }}"
+  gather_facts: false
+  tasks:
+    - name: Check whether a reboot is needed (needs-restarting -r)
+      ansible.builtin.debug:
+        msg: "Simulated: core libraries or kernel updated - reboot scheduled in the maintenance window for {{ inventory_hostname }}"
+
+    - name: Check that application services are running
+      ansible.builtin.debug:
+        msg: "Simulated: httpd, sshd and chronyd active on {{ inventory_hostname }}"
+
+    - name: Publish validated hosts for the next workflow node
+      run_once: true
+      ansible.builtin.set_stats:
+        data:
+          validated_hosts: "{{ ansible_play_hosts | join(',') }}"
+        per_host: false
+        aggregate: false
