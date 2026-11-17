@@ -1,0 +1,37 @@
+---
+# wfjt_dummy_remediate_failed_hosts
+# Simulated fix and re-patch for the hosts that failed in patch_rhel.yml.
+# An AAP workflow job template node can't set its job limit from the previous
+# job's results, so this play targets the hosts named in the failed_hosts
+# variable (published by patch_rhel.yml with set_stats and passed down the
+# workflow as an extra variable). If failed_hosts is empty, no hosts match and
+# the play does nothing.
+- name: Fix the cause of the patch failure and re-apply errata (simulated)
+  hosts: "{{ failed_hosts | default('no_failed_hosts', true) }}"
+  gather_facts: false
+  tasks:
+    - name: Free space in /var (clean dnf cache, remove old kernels)
+      ansible.builtin.debug:
+        msg: >-
+          Simulated: dnf clean all; dnf remove --oldinstallonly --setopt installonly_limit=2 kernel
+          - freed 1.4G in /var on {{ inventory_hostname }}
+      when: sim_failure | default('') == 'disk_full'
+
+    - name: Renew the entitlement and rebuild the repository cache
+      ansible.builtin.debug:
+        msg: >-
+          Simulated: subscription-manager refresh; dnf clean metadata; dnf makecache
+          - entitlement renewed on {{ inventory_hostname }}
+      when: sim_failure | default('') == 'repo_unreachable'
+
+    - name: Re-apply security errata
+      ansible.builtin.debug:
+        msg: "Simulated: 14 packages updated (kernel, openssl, glibc, sudo) on {{ inventory_hostname }}"
+
+    - name: Publish remediated hosts for the next workflow node
+      run_once: true
+      ansible.builtin.set_stats:
+        data:
+          remediated_hosts: "{{ ansible_play_hosts | join(',') }}"
+        per_host: false
+        aggregate: false
