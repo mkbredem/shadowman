@@ -1,0 +1,34 @@
+---
+# ao_dummy_remediate_patch_failures
+# Simulated fix for the two failure causes in patch_rhel.yml, then a re-patch.
+# Run it with a limit of the failed hosts only.
+- name: Fix the cause of the patch failure and re-apply errata (simulated)
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Free space in /var (clean dnf cache, remove old kernels)
+      ansible.builtin.debug:
+        msg: >-
+          Simulated: dnf clean all; dnf remove --oldinstallonly --setopt installonly_limit=2 kernel
+          - freed 1.4G in /var on {{ inventory_hostname }}
+      when: sim_failure | default('') == 'disk_full'
+
+    - name: Renew the entitlement and rebuild the repository cache
+      ansible.builtin.debug:
+        msg: >-
+          Simulated: subscription-manager refresh; dnf clean metadata; dnf makecache
+          - entitlement renewed on {{ inventory_hostname }}
+      when: sim_failure | default('') == 'repo_unreachable'
+
+    - name: Re-apply security errata
+      ansible.builtin.debug:
+        msg: "Simulated: 14 packages updated (kernel, openssl, glibc, sudo) on {{ inventory_hostname }}"
+
+    - name: Publish remediated hosts for automation orchestrator
+      run_once: true
+      ansible.builtin.set_stats:
+        data:
+          remediated_hosts: "{{ ansible_play_hosts | join(',') }}"
+          remediated_count: "{{ ansible_play_hosts | length }}"
+        per_host: false
+        aggregate: false
