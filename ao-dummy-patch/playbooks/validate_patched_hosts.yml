@@ -1,0 +1,23 @@
+---
+# ao_dummy_validate_patched_hosts
+# Simulated post-patch checks. Run it with a limit of the hosts that patched.
+- name: Validate hosts after patching (simulated)
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Check whether a reboot is needed (needs-restarting -r)
+      ansible.builtin.debug:
+        msg: "Simulated: core libraries or kernel updated - reboot scheduled in the maintenance window for {{ inventory_hostname }}"
+
+    - name: Check that application services are running
+      ansible.builtin.debug:
+        msg: "Simulated: httpd, sshd and chronyd active on {{ inventory_hostname }}"
+
+    - name: Publish validated hosts for automation orchestrator
+      run_once: true
+      ansible.builtin.set_stats:
+        data:
+          validated_hosts: "{{ ansible_play_hosts | join(',') }}"
+          validated_count: "{{ ansible_play_hosts | length }}"
+        per_host: false
+        aggregate: false
