@@ -1,0 +1,19 @@
+---
+# ao_dummy_patch_report
+# Prints the patch-cycle summary that automation orchestrator passes in as extra variables.
+- name: Patch cycle summary
+  hosts: localhost
+  gather_facts: false
+  vars:
+    ok_hosts: ""
+    failed_hosts: ""
+    remediated_hosts: ""
+    validated_hosts: ""
+  tasks:
+    - name: Show the summary
+      ansible.builtin.debug:
+        msg:
+          - "Patched on first attempt: {{ ok_hosts | default('none', true) }}"
+          - "Validated after patching: {{ validated_hosts | default('none', true) }}"
+          - "Failed on first attempt: {{ failed_hosts | default('none', true) }}"
+          - "Remediated and re-patched: {{ remediated_hosts | default('none', true) }}"
