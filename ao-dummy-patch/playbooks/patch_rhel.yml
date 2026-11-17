@@ -1,0 +1,81 @@
+---
+# ao_dummy_patch_rhel
+# Simulated RHEL security patching. No packages are installed. Hosts whose
+# inventory variable `sim_failure` is set fail with the error a real dnf run
+# prints for that cause:
+#   disk_full         - /var has too little free space for the dnf transaction
+#   repo_unreachable  - repository metadata cannot be downloaded (expired
+#                       entitlement or Satellite/CDN not reachable)
+# Set simulate_failures=false to make every host succeed.
+#
+# The job publishes these values with set_stats for automation orchestrator:
+#   ok_hosts, failed_hosts   comma-separated host names (usable as a job limit)
+#   ok_count, failed_count   integers
+#   failure_details          list of {inventory_hostname, patch_failed_task,
+#                            patch_error, sim_failure}
+- name: Apply RHEL security errata (simulated)
+  hosts: all
+  gather_facts: false
+  vars:
+    simulate_failures: true
+    errata_severity: Important
+  tasks:
+    - name: Patch this host
+      block:
+        - name: Check free space in /var for the dnf transaction
+          ansible.builtin.assert:
+            that:
+              - not (simulate_failures | bool and sim_failure | default('') == 'disk_full')
+            fail_msg: >-
+              Error: Transaction test error: installing package
+              kernel-5.14.0-570.25.1.el9_6.x86_64 needs 312MB more space on the /var filesystem
+            success_msg: /var has 4.1G free, enough for the dnf transaction
+
+        - name: Refresh repository metadata
+          ansible.builtin.assert:
+            that:
+              - not (simulate_failures | bool and sim_failure | default('') == 'repo_unreachable')
+            fail_msg: >-
+              Errors during downloading metadata for repository 'rhel-9-for-x86_64-baseos-rpms':
+              Curl error (58): Problem with the local client certificate - the entitlement
+              certificate for this system has expired. Failed to download metadata for repo
+              'rhel-9-for-x86_64-baseos-rpms'
+            success_msg: Repository metadata refreshed from rhel-9-for-x86_64-baseos-rpms and appstream
+
+        - name: Apply {{ errata_severity }} security errata
+          ansible.builtin.debug:
+            msg: "Simulated: 14 packages updated (kernel, openssl, glibc, sudo) on {{ inventory_hostname }}"
+
+        - name: Record success
+          ansible.builtin.set_fact:
+            patch_ok: true
+
+      rescue:
+        - name: Record why this host failed
+          ansible.builtin.set_fact:
+            patch_error: "{{ ansible_failed_result.msg | default('unknown error') }}"
+            patch_failed_task: "{{ ansible_failed_task.name | default('unknown task') }}"
+
+    - name: Publish results for automation orchestrator
+      run_once: true
+      vars:
+        __ok: "{{ ansible_play_hosts_all | select('in', ansible_play_hosts_all | map('extract', hostvars) | selectattr('patch_ok', 'defined') | map(attribute='inventory_hostname') | list) | list }}"
+        __failed: "{{ ansible_play_hosts_all | difference(__ok) }}"
+      ansible.builtin.set_stats:
+        data:
+          ok_hosts: "{{ __ok | join(',') }}"
+          failed_hosts: "{{ __failed | join(',') }}"
+          ok_count: "{{ __ok | length }}"
+          failed_count: "{{ __failed | length }}"
+          failure_details: >-
+            {{ __failed | map('extract', hostvars)
+               | map('dict2items')
+               | map('selectattr', 'key', 'in', ['inventory_hostname', 'patch_failed_task', 'patch_error', 'sim_failure'])
+               | map('items2dict') | list }}
+        per_host: false
+        aggregate: false
+
+    - name: Fail the hosts that could not be patched
+      ansible.builtin.fail:
+        msg: "{{ patch_failed_task }}: {{ patch_error }}"
+      when: patch_error is defined
